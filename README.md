@@ -1,4 +1,4 @@
-# crawl4ai MCP Server
+# Crawl4ai MCP Server
 
 A MCP server that provides web crawling capabilities using crawl4ai with markdown output for the LLM.
 
