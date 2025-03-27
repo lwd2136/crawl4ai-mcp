@@ -1,12 +1,12 @@
 # crawl4ai MCP Server
 
-A MCP server that provides web crawling capabilities with markdown output and citations.
+A MCP server that provides web crawling capabilities using crawl4ai with markdown output for the LLM.
 
 ## Installation
 
 ### Prerequisites
 - Node.js
-- Access to the crawl4ai API service
+- Access to the crawl4ai instance: https://docs.crawl4ai.com/core/docker-deployment/
 
 ### Setup
 
@@ -37,7 +37,7 @@ npm run build
         "/path/to/crawl4ai-server/build/index.js"
       ],
       "env": {
-        "CRAWL4AI_API_URL": "http://127.0.0.1:11235",  // Optional: defaults to this URL
+        "CRAWL4AI_API_URL": "http://127.0.0.1:11235",
         "CRAWL4AI_AUTH_TOKEN": "your-auth-token"           // Optional: if authentication is needed
       }
     }
