@@ -115,33 +115,67 @@ class Crawl4AIServer {
             }
 
             try {
-                const response = await this.axiosInstance.post('/crawl_direct', {
+                const response = await this.axiosInstance.post('/crawl', {
                     ...DEFAULT_CONFIG,
                     urls: request.params.arguments.urls
                 });
                 
-                if (!response.data || !response.data.results) {
+                if (!response.data || !response.data.task_id) {
                     throw new McpError(
                         ErrorCode.InternalError,
-                        'Invalid response format from crawling service'
+                        'Invalid response format from crawling service: No task ID'
                     );
                 }
 
-                const markdownResults = response.data.results.map((result: any) => {
-                    if (!result.markdown_v2 || !result.markdown_v2.markdown_with_citations) {
-                        return 'Error: No markdown content available for this URL';
-                    }
-                    return result.markdown_v2.markdown_with_citations;
-                });
+                const taskId = response.data.task_id;
+                let taskStatus;
+                const maxAttempts = 30;
+                let attempts = 0;
 
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: markdownResults.join('\n\n---\n\n')
+                console.error(`[MCP Info] Task ${taskId} submitted, polling for results...`);
+
+                while (attempts < maxAttempts) {
+                    const statusResponse = await this.axiosInstance.get(`/task/${taskId}`);
+                    taskStatus = statusResponse.data;
+
+                    if (taskStatus.status === 'completed') {
+                        if (!taskStatus.results || taskStatus.results.length === 0) {
+                            throw new McpError(
+                                ErrorCode.InternalError,
+                                'Invalid response format from crawling service: No results in completed task'
+                            );
                         }
-                    ]
-                };
+                        const markdownResults = taskStatus.results.map((result: any) => {
+                            if (!result.markdown) {
+                                return `Error: No markdown content available for URL ${result.url || 'unknown'}`;
+                            }
+                            return result.markdown;
+                        });
+
+                        return {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: markdownResults.join('\n\n---\n\n')
+                                }
+                            ]
+                        };
+                    } else if (taskStatus.status === 'failed') {
+                        throw new McpError(
+                            ErrorCode.InternalError,
+                            `Task ${taskId} failed: ${taskStatus.error || 'Unknown error'}`
+                        );
+                    }
+
+                    attempts++;
+                    console.error(`[MCP Info] Task ${taskId} not completed yet (attempt ${attempts}/${maxAttempts}), status: ${taskStatus.status}`);
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒后重试
+                }
+
+                throw new McpError(
+                    ErrorCode.InternalError,
+                    `Task ${taskId} did not complete within the expected time (${maxAttempts} attempts)`
+                );
 
             } catch (error) {
                 if (axios.isAxiosError(error)) {
